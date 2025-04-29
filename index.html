@@ -1,5 +1,27 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Q&A Board – Test</title>
-</head><body>
-<h1 style="text-align:center">GitHub Pages is live 🎉</h1>
-</body></html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Q&A Board</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Q&A Board</h1>
+    <select id="lectureSel">
+      <option>Lecture A</option><option>Lecture B</option>
+    </select>
+  </header>
+
+  <main id="list">질문을 불러오는 중…</main>
+
+  <form id="askForm">
+    <input id="nameInp" placeholder="이름(선택)">
+    <textarea id="qInp" placeholder="질문을 입력하세요(필수)"></textarea>
+    <button type="submit">질문 등록</button>
+  </form>
+
+  <script src="app.js"></script>
+</body>
+</html>
