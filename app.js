@@ -1,66 +1,106 @@
 const API = 'https://script.google.com/macros/s/AKfycbzjxtSb16w6SnarXRwOH_6ItWRb0M_IMXbSAtTRzF5QFaDL43e0u8rkG-Yh75-ncpRI/exec';  // 새 exec URL
 
-const list   = document.getElementById('list');
-const sel    = document.getElementById('lectureSel');
-const form   = document.getElementById('askForm');
-const nameIn = document.getElementById('nameInp');
-const qIn    = document.getElementById('qInp');
+const list  = document.getElementById('list');
+const sel   = document.getElementById('lectureSel');
+const form  = document.getElementById('askForm');
+const nameI = document.getElementById('nameInp');
+const qI    = document.getElementById('qInp');
+const busy  = document.getElementById('busy');
 
-/*  LocalStorage  */
-const MYQ_LS = 'qna_myQ', LIKE_LS = 'qna_like';
-const myQ  = JSON.parse(localStorage.getItem(MYQ_LS)||'[]');
-const myL  = JSON.parse(localStorage.getItem(LIKE_LS)||'[]');
+/* localStorage */
+const LS_MY = 'qna_myQ', LS_LIKE = 'qna_like';
+const myQ = JSON.parse(localStorage.getItem(LS_MY)||'[]');
+const myL = JSON.parse(localStorage.getItem(LS_LIKE)||'[]');
 
-/* ------- load & render ------- */
-function load(){
-  list.textContent='질문을 불러오는 중…';
-  fetch(`${API}?mode=get&lecture=${encodeURIComponent(sel.value)}`)
-    .then(r=>r.json()).then(render).catch(err=>{
-      list.textContent='[오류] '+err.message;
-    });
+/* 공통 fetch */
+async function api(params){
+  const url = API + '?' + new URLSearchParams(params);
+  const r   = await fetch(url); if(!r.ok) throw new Error(r.status);
+  return r.json();
 }
-function render(arr){
-  if(!arr.length){list.innerHTML='<p>아직 등록된 질문이 없습니다.</p>';return;}
-  list.innerHTML='';
-  arr.forEach(v=>{
-    const card = document.createElement('div');
-    card.className='card';
-    card.innerHTML=`
-      <p><strong>${v.name}</strong>: ${v.q}</p>
-      <p>
-        <button class="heart ${myL.includes(v.id)?'liked':''}" data-id="${v.id}">
-          ❤️ <span>${v.like}</span>
-        </button>
-      </p>`;
-    card.querySelector('.heart').onclick = toggleLike;
-    list.appendChild(card);
+
+/* 로딩 */
+async function load(){
+  list.textContent='질문을 불러오는 중…';
+  try{
+    const arr = await api({mode:'get',lecture:sel.value});
+    if(!arr.length){list.innerHTML='<p>아직 등록된 질문이 없습니다.</p>';return;}
+    list.innerHTML='';
+    arr.forEach(v=>{
+      const own = myQ.includes(v.id), liked = myL.includes(v.id);
+      list.insertAdjacentHTML('beforeend',`
+        <div class="card" data-id="${v.id}">
+          <p><strong>${v.name}</strong>: <span class="q">${v.q}</span></p>
+          <p>
+            <button class="heart ${liked?'liked':''}">
+              ❤️ <span>${v.like}</span>
+            </button>
+            ${own?'<button class="edit">수정</button><button class="del">삭제</button>':''}
+          </p>
+        </div>`);
+    });
+    /* 이벤트 위임 */
+    list.querySelectorAll('.heart').forEach(b=>b.onclick=toggleLike);
+    list.querySelectorAll('.edit').forEach(b=>b.onclick=editQ);
+    list.querySelectorAll('.del').forEach(b=>b.onclick=delQ);
+  }catch(e){
+    list.textContent='[오류] '+e.message;
+  }
+}
+
+/* 질문 추가 */
+form.onsubmit = async e=>{
+  e.preventDefault(); const q=qI.value.trim(); if(!q){alert('내용이 없습니다');return;}
+  busy.style.display='flex';
+  try{
+    const d = await api({mode:'add',lecture:sel.value,name:nameI.value,q});
+    myQ.push(d.id); localStorage.setItem(LS_MY,JSON.stringify(myQ));
+    nameI.value=''; qI.value=''; await load();
+  }finally{busy.style.display='none';}
+};
+
+/* 좋아요 */
+async function toggleLike(e){
+  const btn=e.currentTarget, card=btn.closest('.card'), id=card.dataset.id;
+  const liked=btn.classList.contains('liked');
+  const d = await api({mode:'like',id,delta:liked?-1:1});
+  btn.classList.toggle('liked');
+  btn.querySelector('span').textContent=d.like;
+  if(liked) myL.splice(myL.indexOf(id),1); else myL.push(id);
+  localStorage.setItem(LS_LIKE,JSON.stringify(myL));
+}
+
+/* ---- 모달 (수정/삭제) ---- */
+const modal   = document.getElementById('modal');
+const modalIn = document.getElementById('modalIn');
+let modalOkCB = null;
+document.getElementById('mCancel').onclick = ()=>{modal.style.display='none';};
+document.getElementById('mOk').onclick = ()=>{ if(modalOkCB) modalOkCB(); };
+
+function openModal(text, ok){
+  modalIn.value=text; modal.style.display='flex'; modalIn.focus(); modalOkCB = ok;
+}
+
+/* 수정 */
+function editQ(e){
+  const card=e.currentTarget.closest('.card'), id=card.dataset.id,
+        qEl=card.querySelector('.q'), cur=qEl.textContent;
+  openModal(cur, async ()=>{
+    const next=modalIn.value.trim(); if(!next||next===cur){modal.style.display='none';return;}
+    await api({mode:'edit',id,q:next}); modal.style.display='none'; load();
   });
 }
 
-/* ------- 제출 ------- */
-form.onsubmit = e=>{
-  e.preventDefault();
-  const q = qIn.value.trim(); if(!q){alert('질문을 입력하세요');return;}
-  fetch(`${API}?mode=add&lecture=${encodeURIComponent(sel.value)}&name=${encodeURIComponent(nameIn.value)}&q=${encodeURIComponent(q)}`)
-    .then(r=>r.json()).then(d=>{
-      myQ.push(d.id); localStorage.setItem(MYQ_LS,JSON.stringify(myQ));
-      nameIn.value=''; qIn.value=''; load();
-    });
-};
-
-/* ------- 좋아요 ------- */
-function toggleLike(e){
-  const btn = e.currentTarget, id = btn.dataset.id;
-  const liked = btn.classList.contains('liked');
-  fetch(`${API}?mode=like&id=${id}&delta=${liked?-1:1}`)
-    .then(r=>r.json()).then(d=>{
-      btn.classList.toggle('liked');
-      btn.querySelector('span').textContent = d.like;
-      if(liked) myL.splice(myL.indexOf(id),1); else myL.push(id);
-      localStorage.setItem(LIKE_LS,JSON.stringify(myL));
-    });
+/* 삭제 */
+function delQ(e){
+  if(!confirm('정말 삭제하시겠습니까?')) return;
+  const id=e.currentTarget.closest('.card').dataset.id;
+  api({mode:'del',id}).then(()=>{
+    myQ.splice(myQ.indexOf(id),1); localStorage.setItem(LS_MY,JSON.stringify(myQ));
+    load();
+  });
 }
 
 /* init */
-sel.onchange = load;
-window.onload = load;
+sel.onchange=load;
+window.onload=load;
