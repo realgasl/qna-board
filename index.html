@@ -22,6 +22,20 @@
   <button type="submit" class="submit">질문 등록</button>
 </form>
 
+<!-- ⬇️ “질문 등록중 …” 오버레이 -->
+<div id="busy" class="busy">
+  <div class="busy-inner">질문을 게시중입니다…</div>
+</div>
+
+<!-- 간단 확인용 모달 -->
+<div id="modal" class="modal"><div class="modal-box">
+  <textarea id="modalIn"></textarea>
+  <div class="modal-btns">
+    <button id="mCancel">취소</button>
+    <button id="mOk">확인</button>
+  </div>
+</div></div>
+
 <script src="app.js"></script>
 </body>
 </html>
